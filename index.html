@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Cronómetro" />
+  <title>Cronómetro Vueltas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface2: #1e1e1e;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --muted: #888;
+      --green: #1D9E75;
+      --green-light: #E1F5EE;
+      --green-dark: #0F6E56;
+      --red: #D85A30;
+      --red-light: #FAECE7;
+      --red-dark: #993C1D;
+      --blue: #378ADD;
+      --blue-light: #E6F1FB;
+      --blue-dark: #185FA5;
+      --amber: #EF9F27;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      padding: 0 1.25rem 2rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+
+    header {
+      padding: 3rem 0 1rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .display {
+      text-align: center;
+      padding: 2rem 0 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .time-main {
+      font-size: clamp(52px, 15vw, 72px);
+      font-weight: 300;
+      letter-spacing: -3px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .time-main.running {
+      color: #fff;
+    }
+
+    .lap-current {
+      margin-top: 0.75rem;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-height: 28px;
+      transition: opacity 0.2s;
+    }
+
+    .lap-current-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-top: 4px;
+      min-height: 16px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 22px;
+      margin-bottom: 1rem;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.ok { background: var(--green); }
+    .dot.err { background: var(--red); }
+    .dot.sending { background: var(--amber); animation: pulse 0.8s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn {
+      padding: 14px 8px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, opacity 0.2s;
+      font-family: inherit;
+    }
+
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-start {
+      background: rgba(29,158,117,0.15);
+      border-color: rgba(29,158,117,0.4);
+      color: #4ecda4;
+    }
+    .btn-start:active:not(:disabled) { background: rgba(29,158,117,0.25); }
+
+    .btn-stop {
+      background: rgba(216,90,48,0.15);
+      border-color: rgba(216,90,48,0.4);
+      color: #f08060;
+    }
+    .btn-stop:active:not(:disabled) { background: rgba(216,90,48,0.25); }
+
+    .btn-lap {
+      background: rgba(55,138,221,0.15);
+      border-color: rgba(55,138,221,0.4);
+      color: #6ab0f5;
+    }
+    .btn-lap:active:not(:disabled) { background: rgba(55,138,221,0.25); }
+
+    .laps-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .laps-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.25rem;
+    }
+
+    .laps-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-clear {
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn-clear:hover { background: var(--surface2); }
+    .btn-clear:active { transform: scale(0.97); }
+
+    .laps-list {
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .lap-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      transition: background 0.15s;
+    }
+
+    .lap-row:last-child { border-bottom: none; }
+
+    .lap-num {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .lap-time {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .lap-total {
+      color: var(--muted);
+      text-align: right;
+      font-size: 14px;
+    }
+
+    .lap-best .lap-time { color: #4ecda4; }
+    .lap-worst .lap-time { color: #f08060; }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .cols-label {
+      display: grid;
+      grid-template-columns: 36px 1fr 1fr;
+      gap: 8px;
+      padding: 6px 4px;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .cols-label span:last-child { text-align: right; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Cronómetro</h1>
+  </header>
+
+  <div class="display">
+    <div class="time-main" id="display">00:00.000</div>
+    <div class="lap-current" id="lap-display"></div>
+    <div class="lap-current-label" id="lap-label"></div>
+  </div>
+
+  <div class="status-bar">
+    <span class="dot" id="dot"></span>
+    <span id="status-msg">Listo</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-start" id="btn-start" onclick="startStop()">Iniciar</button>
+    <button class="btn btn-lap" id="btn-lap" onclick="lap()" disabled>Vuelta</button>
+    <button class="btn" id="btn-reset" onclick="reset()" disabled>Reiniciar</button>
+  </div>
+
+  <div class="laps-section">
+    <div class="laps-header">
+      <span class="laps-title">Vueltas</span>
+      <button class="btn-clear" onclick="clearSheets()">Limpiar hoja</button>
+    </div>
+    <div class="cols-label" id="cols-label" style="display:none">
+      <span>#</span><span>Vuelta</span><span>Total</span>
+    </div>
+    <div class="laps-list" id="laps-list">
+      <div class="empty-state" id="empty">Pulsa Vuelta para registrar tiempos</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzEqaCI-XgD0DyXmK__rAcgO5Es_gxYzc_zTfHxJADAavAgtiJ33_RhSJBA71xwXscFQw/exec";
+
+let running = false;
+let startTime = 0;
+let elapsed = 0;
+let lapStart = 0;
+let rafId = null;
+let laps = [];
+
+function fmt(ms) {
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const cs = ms % 1000;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(3,'0')}`;
+}
+
+function tick() {
+  const now = elapsed + (Date.now() - startTime);
+  const lapNow = now - lapStart;
+  document.getElementById('display').textContent = fmt(now);
+  document.getElementById('lap-display').textContent = fmt(lapNow);
+  rafId = requestAnimationFrame(tick);
+}
+
+function startStop() {
+  if (!running) {
+    running = true;
+    startTime = Date.now();
+    document.getElementById('display').classList.add('running');
+    document.getElementById('btn-start').textContent = 'Pausar';
+    document.getElementById('btn-start').className = 'btn btn-stop';
+    document.getElementById('btn-lap').disabled = false;
+    document.getElementById('btn-reset').disabled = false;
+    document.getElementById('lap-label').textContent = 'vuelta actual';
+    rafId = requestAnimationFrame(tick);
+  } else {
+    running = false;
+    elapsed += Date.now() - startTime;
+    cancelAnimationFrame(rafId);
+    document.getElementById('display').classList.remove('running');
+    document.getElementById('btn-start').textContent = 'Continuar';
+    document.getElementById('btn-start').className = 'btn btn-start';
+  }
+}
+
+function lap() {
+  const now = elapsed + (Date.now() - startTime);
+  const lapTime = now - lapStart;
+  lapStart = now;
+  const num = laps.length + 1;
+  const ts = new Date().toLocaleString('es-ES');
+  laps.push({ lap: num, lapTime, totalTime: now, timestamp: ts });
+  renderLaps();
+  sendToSheets({ action: 'lap', lap: num, lapTime: fmt(lapTime), totalTime: fmt(now), timestamp: ts });
+
+  // Feedback haptico en movil
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function reset() {
+  if (running) {
+    running = false;
+    cancelAnimationFrame(rafId);
+  }
+  elapsed = 0;
+  lapStart = 0;
+  laps = [];
+  document.getElementById('display').textContent = '00:00.000';
+  document.getElementById('display').classList.remove('running');
+  document.getElementById('lap-display').textContent = '';
+  document.getElementById('lap-label').textContent = '';
+  document.getElementById('btn-start').textContent = 'Iniciar';
+  document.getElementById('btn-start').className = 'btn btn-start';
+  document.getElementById('btn-lap').disabled = true;
+  document.getElementById('btn-reset').disabled = true;
+  renderLaps();
+  setStatus('', 'Listo');
+}
+
+function renderLaps() {
+  const list = document.getElementById('laps-list');
+  const empty = document.getElementById('empty');
+  const cols = document.getElementById('cols-label');
+
+  if (laps.length === 0) {
+    empty.style.display = 'block';
+    cols.style.display = 'none';
+    while (list.children.length > 1) list.removeChild(list.lastChild);
+    return;
+  }
+
+  empty.style.display = 'none';
+  cols.style.display = 'grid';
+
+  const times = laps.map(l => l.lapTime);
+  const best = Math.min(...times);
+  const worst = Math.max(...times);
+
+  while (list.children.length > 1) list.removeChild(list.lastChild);
+
+  [...laps].reverse().forEach(l => {
+    const row = document.createElement('div');
+    let extra = '';
+    if (laps.length > 1) {
+      if (l.lapTime === best) extra = 'lap-best';
+      else if (l.lapTime === worst) extra = 'lap-worst';
+    }
+    row.className = `lap-row ${extra}`;
+    row.innerHTML = `
+      <span class="lap-num">${l.lap}</span>
+      <span class="lap-time">${fmt(l.lapTime)}</span>
+      <span class="lap-total">${fmt(l.totalTime)}</span>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function setStatus(type, msg) {
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('status-msg');
+  dot.className = 'dot' + (type ? ' ' + type : '');
+  txt.textContent = msg;
+}
+
+async function sendToSheets(data) {
+  setStatus('sending', 'Enviando a Google Sheets...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    setStatus('ok', 'Guardado en Google Sheets');
+    setTimeout(() => setStatus('', 'Listo'), 2500);
+  } catch (e) {
+    setStatus('err', 'Error al conectar con Google Sheets');
+  }
+}
+
+async function clearSheets() {
+  if (!confirm('¿Limpiar toda la hoja de cálculo?')) return;
+  await sendToSheets({ action: 'clear' });
+}
+</script>
+</body>
+</html>
